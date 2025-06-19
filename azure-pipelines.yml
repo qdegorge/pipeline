@@ -1,0 +1,44 @@
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  resourceGroup: 'tpsop-dependencytracker'
+  location: 'eastus'
+
+# Store this securely in your Azure DevOps Library or Pipeline variables
+# under the name: DTRACK_DB_PASSWORD
+# Mark it as secret
+parameters:
+  - name: admin
+    default: $(DTRACK_DB_PASSWORD)
+
+stages:
+  - stage: Deploy
+    jobs:
+      - job: BicepDeployment
+        pool:
+          vmImage: ubuntu-latest
+
+        steps:
+          - task: AzureCLI@2
+            name: DeployInfrastructure
+            inputs:
+              azureSubscription: 'Azure subscription 1'
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az --version
+                echo "Deploying Bicep template..."
+
+                az group create --name ${{ variables.resourceGroup }} --location ${{ variables.location }}
+
+                az deployment group create \
+                  --resource-group ${{ variables.resourceGroup }} \
+                  --template-file main.bicep \
+                  --parameters \
+                    location=${{ variables.location }} \
+                    postgresAdminUser=dtrackadmin \
+                    postgresAdminPassword='${{ parameters.dbPassword }}'
+            displayName: 'Deploy Dependency-Track Infrastructure'
