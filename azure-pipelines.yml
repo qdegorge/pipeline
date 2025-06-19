@@ -1,44 +1,36 @@
 trigger:
-  branches:
-    include:
-      - main
+- main
+
+pool:
+  vmImage: ubuntu-latest
 
 variables:
-  resourceGroup: 'tpsop-dependencytracker'
-  location: 'eastus'
+  DTRACK_API_URL: 'https://dtrack-api.whitemeadow-13deb2f9.westeurope.azurecontainerapps.io'
+  DTRACK_API_KEY: '$(DTRACK_API_KEY)' # à ajouter dans Azure DevOps > Library > Pipeline secrets
 
-# Store this securely in your Azure DevOps Library or Pipeline variables
-# under the name: DTRACK_DB_PASSWORD
-# Mark it as secret
-parameters:
-  - name: admin
-    default: $(DTRACK_DB_PASSWORD)
+steps:
+- task: UseDotNet@2
+  inputs:
+    packageType: 'sdk'
+    version: '8.x'
+    installationPath: $(Agent.ToolsDirectory)/dotnet
 
-stages:
-  - stage: Deploy
-    jobs:
-      - job: BicepDeployment
-        pool:
-          vmImage: ubuntu-latest
+- script: |
+    dotnet tool install --global CycloneDX
+  displayName: 'Install CycloneDX tool'
 
-        steps:
-          - task: AzureCLI@2
-            name: DeployInfrastructure
-            inputs:
-              azureSubscription: 'Azure subscription 1'
-              scriptType: bash
-              scriptLocation: inlineScript
-              inlineScript: |
-                az --version
-                echo "Deploying Bicep template..."
+- script: |
+    cd MonProjet
+    dotnet cyclonedx --format json
+  displayName: 'Generate SBOM with CycloneDX'
 
-                az group create --name ${{ variables.resourceGroup }} --location ${{ variables.location }}
-
-                az deployment group create \
-                  --resource-group ${{ variables.resourceGroup }} \
-                  --template-file main.bicep \
-                  --parameters \
-                    location=${{ variables.location }} \
-                    postgresAdminUser=dtrackadmin \
-                    postgresAdminPassword='${{ parameters.dbPassword }}'
-            displayName: 'Deploy Dependency-Track Infrastructure'
+- task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: |
+      curl -X PUT \
+        "$(DTRACK_API_URL)/api/v1/bom" \
+        -H "X-Api-Key: $(DTRACK_API_KEY)" \
+        -H "Content-Type: application/json" \
+        --data-binary "@MonProjet/bom.json"
+  displayName: 'Upload SBOM to Dependency-Track'
