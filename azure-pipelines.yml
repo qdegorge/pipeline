@@ -21,7 +21,7 @@ steps:
   displayName: 'Install CycloneDX CLI'
 
 - script: |
-    cd download/MonProjet
+    cd Downloads/MonProjet
     dotnet CycloneDX --project-type library --out sbom.json
   displayName: 'Generate SBOM with CycloneDX'
 
