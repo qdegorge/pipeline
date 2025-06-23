@@ -5,32 +5,29 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  DTRACK_API_URL: 'https://dtrack-api.whitemeadow-13deb2f9.westeurope.azurecontainerapps.io'
-  DTRACK_API_KEY: '$(DTRACK_API_KEY)' # à ajouter dans Azure DevOps > Library > Pipeline secrets
+  DTRACK_API_URL: 'https://dtrack-frontend.whitemeadow-13deb2f9.westeurope.azurecontainerapps.io/'  # 🔁 À remplacer
+  DTRACK_API_KEY: 'odt_027pahIG_4qANNA7tqCzelC7Rxrl67RHDgIBCzxd6'                        # 🔁 À remplacer (ou à mettre en variable secrète dans l'UI)
 
 steps:
 - task: UseDotNet@2
   inputs:
     packageType: 'sdk'
-    version: '8.x'
-    installationPath: $(Agent.ToolsDirectory)/dotnet
+    version: '8.x'  # ✅ Adapte à ta version de .NET si nécessaire
+  displayName: 'Use .NET SDK'
 
 - script: |
     dotnet tool install --global CycloneDX
-  displayName: 'Install CycloneDX tool'
+    export PATH="$PATH:/home/vsts/.dotnet/tools"
+  displayName: 'Install CycloneDX CLI'
 
 - script: |
-    cd MonProjet
-    dotnet cyclonedx --format json
+    cd download/MonProjet
+    dotnet CycloneDX --project-type library --out sbom.json
   displayName: 'Generate SBOM with CycloneDX'
 
-- task: Bash@3
-  inputs:
-    targetType: 'inline'
-    script: |
-      curl -X PUT \
-        "$(DTRACK_API_URL)/api/v1/bom" \
-        -H "X-Api-Key: $(DTRACK_API_KEY)" \
-        -H "Content-Type: application/json" \
-        --data-binary "@MonProjet/bom.json"
+- script: |
+    curl -X PUT "$(DTRACK_API_URL)/api/v1/bom" \
+      -H "X-Api-Key: $(DTRACK_API_KEY)" \
+      -H "Content-Type: application/json" \
+      --data-binary "@download/MonProjet/sbom.json"
   displayName: 'Upload SBOM to Dependency-Track'
