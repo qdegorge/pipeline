@@ -25,14 +25,14 @@ jobs:
       projects: 'ResearchDependencyTrack.sln'
 
   - task: DotNetCoreCLI@2
-    displayName: 'Installer l''outil CycloneDX.DotNet' # MODIFIÉ
+    displayName: 'Installer l''outil cyclonedx-cli' # MODIFIÉ
     inputs:
       command: 'custom'
       custom: 'tool'
-      arguments: 'install --global CycloneDX.DotNet' # MODIFIÉ
+      arguments: 'install --global cyclonedx-cli' # MODIFIÉ
 
   - script: |
-      cyclonedx-dotnet -i ResearchDependencyTrack.sln -o $(Build.ArtifactStagingDirectory)/sbom.json # MODIFIÉ
+      cyclonedx -i ResearchDependencyTrack.sln -o $(Build.ArtifactStagingDirectory)/sbom.json # MODIFIÉ
     displayName: 'Générer le SBOM'
 
   - task: Bash@3
