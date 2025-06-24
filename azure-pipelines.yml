@@ -12,7 +12,7 @@ pool:
 
 # Assurez-vous que le nom de votre groupe de variables est correct
 variables:
-- group: DependencyTrack-Creds
+- group: DTRACK_API
 
 jobs:
 - job: Build_and_Upload_SBOM
