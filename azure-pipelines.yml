@@ -8,8 +8,7 @@ pool:
 
 # Lier le groupe de variables créé dans la "Library" d'Azure DevOps
 variables:
-- group: DTRACK_API # <-- IMPORTANT: Remplacez par le nom exact de votre groupe de variables
-
+- group: DTRACK_API # 
 # Les étapes de la pipeline sont organisées en "jobs"
 jobs:
 - job: Build_and_Upload_SBOM
