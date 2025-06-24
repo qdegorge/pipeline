@@ -1,53 +1,64 @@
-# Déclencheur : la pipeline s'exécute à chaque push sur la branche 'main'
+# ===================================================================
+# PIPELINE COMPLÈTE AVEC DÉBOGAGE
+# ===================================================================
+# Ce fichier est prêt à l'emploi.
+# Copiez-collez l'intégralité de ce code dans votre azure-pipelines.yml
+
 trigger:
-- main
+- main  # Se déclenche sur un push vers la branche 'main'
 
-# Agent sur lequel la pipeline va s'exécuter
 pool:
-  vmImage: 'windows-latest'
+  vmImage: 'windows-latest' # Agent d'exécution Windows
 
-# Lier le groupe de variables créé dans la "Library" d'Azure DevOps
+# Assurez-vous que le nom de votre groupe de variables est correct
 variables:
-- group: DTRACK_API # Assurez-vous que le nom est correct
+- group: DependencyTrack-Creds
 
-# Les étapes de la pipeline sont organisées en "jobs"
 jobs:
 - job: Build_and_Upload_SBOM
   displayName: 'Générer et envoyer le SBOM pour .NET'
   steps:
 
-  # -- ÉTAPE 1 : Préparation de l'environnement .NET --
+  # --- ÉTAPE DE DÉBOGAGE ---
+  # Cette première étape affiche tous les fichiers pour nous aider à vérifier les chemins.
+  - script: |
+      echo "Affichage de la structure des fichiers et dossiers..."
+      echo "Le répertoire de travail actuel est : $(System.DefaultWorkingDirectory)"
+      dir /s
+    displayName: '1. Lister les fichiers du projet (Debug)'
+
+  # --- ÉTAPE 1 : INSTALLATION .NET ---
   - task: UseDotNet@2
-    displayName: 'Installer le SDK .NET 8.x'
+    displayName: '2. Installer le SDK .NET 8.x'
     inputs:
       packageType: 'sdk'
       version: '8.x'
 
-  # -- ÉTAPE 2 : Restaurer les dépendances du projet (NuGet) --
+  # --- ÉTAPE 2 : RESTAURATION DES DÉPENDANCES ---
+  # La pipeline essaie de trouver le fichier .sln avec le chemin que nous supposons être correct.
   - task: DotNetCoreCLI@2
-    displayName: 'Restaurer les dépendances NuGet'
+    displayName: '3. Restaurer les dépendances NuGet'
     inputs:
       command: 'restore'
-      # MODIFIÉ : On donne le chemin exact vers le fichier .sln
-      projects: 'ResearchDependencyTrack/ResearchDependencyTrack.sln' 
+      projects: 'ResearchDependencyTrack/ResearchDependencyTrack.sln' # CHEMIN À VÉRIFIER
 
-  # -- ÉTAPE 3 : Installation de l'outil CycloneDX pour .NET --
+  # --- ÉTAPE 3 : INSTALLATION DE CYCLONEDX ---
   - task: DotNetCoreCLI@2
-    displayName: 'Installer l''outil CycloneDX pour .NET'
+    displayName: '4. Installer l''outil CycloneDX pour .NET'
     inputs:
       command: 'custom'
       custom: 'tool'
       arguments: 'install --global CycloneDX.Tool'
 
-  # -- ÉTAPE 4 : Génération du SBOM --
+  # --- ÉTAPE 4 : GÉNÉRATION DU SBOM ---
+  # Le même chemin que pour l'étape 2 doit être utilisé ici.
   - script: |
-      # MODIFIÉ : On utilise le chemin exact vers le fichier .sln ici aussi
-      cyclonedx -i ResearchDependencyTrack/ResearchDependencyTrack.sln -o $(Build.ArtifactStagingDirectory)/sbom.json
-    displayName: 'Générer le SBOM à partir du fichier solution'
+      cyclonedx -i ResearchDependencyTrack/ResearchDependencyTrack.sln -o $(Build.ArtifactStagingDirectory)/sbom.json # CHEMIN À VÉRIFIER
+    displayName: '5. Générer le SBOM'
 
-  # -- ÉTAPE 5 : Envoi du SBOM à Dependency-Track (cette étape ne change pas) --
+  # --- ÉTAPE 5 : ENVOI À DEPENDENCY-TRACK ---
   - task: Bash@3
-    displayName: 'Envoyer le SBOM à Dependency-Track'
+    displayName: '6. Envoyer le SBOM à Dependency-Track'
     inputs:
       targetType: 'inline'
       script: |
