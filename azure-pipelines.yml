@@ -1,33 +1,57 @@
+# Déclencheur : la pipeline s'exécute à chaque push sur la branche 'main'
 trigger:
 - main
 
+# Agent sur lequel la pipeline va s'exécuter
 pool:
-  vmImage: ubuntu-latest
+  vmImage: 'ubuntu-latest'
 
+# Lier le groupe de variables créé dans la "Library" d'Azure DevOps
 variables:
-  DTRACK_API_URL: 'https://dtrack-frontend.whitemeadow-13deb2f9.westeurope.azurecontainerapps.io/'  # 🔁 À remplacer
-  DTRACK_API_KEY: 'odt_027pahIG_4qANNA7tqCzelC7Rxrl67RHDgIBCzxd6'                        # 🔁 À remplacer (ou à mettre en variable secrète dans l'UI)
+- group: DTRACK_API # <-- IMPORTANT: Remplacez par le nom exact de votre groupe de variables
 
-steps:
-- task: UseDotNet@2
-  inputs:
-    packageType: 'sdk'
-    version: '8.x'  # ✅ Adapte à ta version de .NET si nécessaire
-  displayName: 'Use .NET SDK'
+# Les étapes de la pipeline sont organisées en "jobs"
+jobs:
+- job: Build_and_Upload_SBOM
+  displayName: 'Générer et envoyer le SBOM'
+  steps:
 
-- script: |
-    dotnet tool install --global CycloneDX
-    export PATH="$PATH:/home/vsts/.dotnet/tools"
-  displayName: 'Install CycloneDX CLI'
+  # -- ÉTAPE 1 : Préparation de l'environnement (exemple pour Node.js) --
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '18.x' # Spécifiez la version de Node.js nécessaire pour votre projet
+    displayName: 'Installer Node.js'
 
-- script: |
-    cd Downloads/MonProjet
-    dotnet CycloneDX --project-type library --out sbom.json
-  displayName: 'Generate SBOM with CycloneDX'
+  - script: npm install
+    displayName: 'Installer les dépendances du projet'
 
-- script: |
-    curl -X PUT "$(DTRACK_API_URL)/api/v1/bom" \
-      -H "X-Api-Key: $(DTRACK_API_KEY)" \
-      -H "Content-Type: application/json" \
-      --data-binary "@Downloads/MonProjet/sbom.json"
-  displayName: 'Upload SBOM to Dependency-Track'
+  # -- ÉTAPE 2 : Installation de CycloneDX et génération du SBOM --
+  - script: npm install -g @cyclonedx/cyclonedx-npm
+    displayName: 'Installer l''outil CycloneDX pour npm'
+
+  - script: |
+      cyclonedx-npm --output-format JSON --output-file $(Build.ArtifactStagingDirectory)/sbom.json
+    displayName: 'Générer le SBOM au format CycloneDX'
+
+  # -- ÉTAPE 3 : Envoi du SBOM à Dependency-Track --
+  - task: Bash@3
+    displayName: 'Envoyer le SBOM à Dependency-Track'
+    inputs:
+      targetType: 'inline'
+      script: |
+        echo "Téléversement du fichier sbom.json vers Dependency-Track..."
+
+        # Nom et version du projet dans Dependency-Track
+        # Vous pouvez les coder en dur ou utiliser des variables
+        PROJECT_NAME="ResearchDependencyTrack"
+        PROJECT_VERSION="$(Build.BuildNumber)" # Utilise le numéro de build d'Azure DevOps comme version
+
+        # Appel de l'API Dependency-Track avec curl
+        curl -X "POST" \
+             -H "X-Api-Key: $(DTACK_API_KEY)" \
+             -H "Content-Type: multipart/form-data" \
+             -F "autoCreate=true" \
+             -F "projectName=${PROJECT_NAME}" \
+             -F "projectVersion=${PROJECT_VERSION}" \
+             -F "bom=@$(Build.ArtifactStagingDirectory)/sbom.json" \
+             "$(DT_API_URL)/api/v1/bom"
