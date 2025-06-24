@@ -4,35 +4,48 @@ trigger:
 
 # Agent sur lequel la pipeline va s'exécuter
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: 'windows-latest' # Les projets .NET fonctionnent mieux sur un agent Windows
 
 # Lier le groupe de variables créé dans la "Library" d'Azure DevOps
 variables:
-- group: DTRACK_API # 
+- group: DTRACK_API # Assurez-vous que le nom est correct
+
 # Les étapes de la pipeline sont organisées en "jobs"
 jobs:
 - job: Build_and_Upload_SBOM
-  displayName: 'Générer et envoyer le SBOM'
+  displayName: 'Générer et envoyer le SBOM pour .NET'
   steps:
 
-  # -- ÉTAPE 1 : Préparation de l'environnement (exemple pour Node.js) --
-  - task: NodeTool@0
+  # -- ÉTAPE 1 : Préparation de l'environnement .NET --
+  - task: UseDotNet@2
+    displayName: 'Installer le SDK .NET 8.x'
     inputs:
-      versionSpec: '18.x' # Spécifiez la version de Node.js nécessaire pour votre projet
-    displayName: 'Installer Node.js'
+      packageType: 'sdk'
+      version: '8.x' # Ou la version que votre projet utilise (ex: '6.x', '7.x')
 
-  - script: npm install
-    displayName: 'Installer les dépendances du projet'
+  # -- ÉTAPE 2 : Restaurer les dépendances du projet (NuGet) --
+  - task: DotNetCoreCLI@2
+    displayName: 'Restaurer les dépendances NuGet'
+    inputs:
+      command: 'restore'
+      projects: '**/*.sln' # Cible le fichier .sln pour restaurer tous les projets
 
-  # -- ÉTAPE 2 : Installation de CycloneDX et génération du SBOM --
-  - script: npm install -g @cyclonedx/cyclonedx-npm
-    displayName: 'Installer l''outil CycloneDX pour npm'
+  # -- ÉTAPE 3 : Installation de l'outil CycloneDX pour .NET --
+  - task: DotNetCoreCLI@2
+    displayName: 'Installer l''outil CycloneDX pour .NET'
+    inputs:
+      command: 'custom'
+      custom: 'tool'
+      arguments: 'install --global CycloneDX.Tool'
 
+  # -- ÉTAPE 4 : Génération du SBOM --
   - script: |
-      cyclonedx-npm --output-format JSON --output-file $(Build.ArtifactStagingDirectory)/sbom.json
-    displayName: 'Générer le SBOM au format CycloneDX'
+      cyclonedx -i ResearchDependencyTrack.sln -o $(Build.ArtifactStagingDirectory)/sbom.json
+    displayName: 'Générer le SBOM à partir du fichier solution'
+    # NOTE: Assurez-vous que le nom 'ResearchDependencyTrack.sln' est correct.
+    # L'option '-i' spécifie le fichier d'entrée (input).
 
-  # -- ÉTAPE 3 : Envoi du SBOM à Dependency-Track --
+  # -- ÉTAPE 5 : Envoi du SBOM à Dependency-Track (cette étape ne change pas) --
   - task: Bash@3
     displayName: 'Envoyer le SBOM à Dependency-Track'
     inputs:
@@ -41,9 +54,8 @@ jobs:
         echo "Téléversement du fichier sbom.json vers Dependency-Track..."
 
         # Nom et version du projet dans Dependency-Track
-        # Vous pouvez les coder en dur ou utiliser des variables
-        PROJECT_NAME="ResearchDependencyTrack"
-        PROJECT_VERSION="$(Build.BuildNumber)" # Utilise le numéro de build d'Azure DevOps comme version
+        PROJECT_NAME="ResearchDependencyTrack" # Nom de votre projet
+        PROJECT_VERSION="$(Build.BuildNumber)" # Utilise le numéro de build d'Azure DevOps
 
         # Appel de l'API Dependency-Track avec curl
         curl -X "POST" \
