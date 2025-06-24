@@ -4,7 +4,7 @@ trigger:
 
 # Agent sur lequel la pipeline va s'exécuter
 pool:
-  vmImage: 'windows-latest' # Les projets .NET fonctionnent mieux sur un agent Windows
+  vmImage: 'windows-latest'
 
 # Lier le groupe de variables créé dans la "Library" d'Azure DevOps
 variables:
@@ -21,14 +21,15 @@ jobs:
     displayName: 'Installer le SDK .NET 8.x'
     inputs:
       packageType: 'sdk'
-      version: '8.x' # Ou la version que votre projet utilise (ex: '6.x', '7.x')
+      version: '8.x'
 
   # -- ÉTAPE 2 : Restaurer les dépendances du projet (NuGet) --
   - task: DotNetCoreCLI@2
     displayName: 'Restaurer les dépendances NuGet'
     inputs:
       command: 'restore'
-      projects: '**/*.sln' # Cible le fichier .sln pour restaurer tous les projets
+      # MODIFIÉ : On donne le chemin exact vers le fichier .sln
+      projects: 'ResearchDependencyTrack/ResearchDependencyTrack.sln' 
 
   # -- ÉTAPE 3 : Installation de l'outil CycloneDX pour .NET --
   - task: DotNetCoreCLI@2
@@ -40,10 +41,9 @@ jobs:
 
   # -- ÉTAPE 4 : Génération du SBOM --
   - script: |
-      cyclonedx -i ResearchDependencyTrack.sln -o $(Build.ArtifactStagingDirectory)/sbom.json
+      # MODIFIÉ : On utilise le chemin exact vers le fichier .sln ici aussi
+      cyclonedx -i ResearchDependencyTrack/ResearchDependencyTrack.sln -o $(Build.ArtifactStagingDirectory)/sbom.json
     displayName: 'Générer le SBOM à partir du fichier solution'
-    # NOTE: Assurez-vous que le nom 'ResearchDependencyTrack.sln' est correct.
-    # L'option '-i' spécifie le fichier d'entrée (input).
 
   # -- ÉTAPE 5 : Envoi du SBOM à Dependency-Track (cette étape ne change pas) --
   - task: Bash@3
@@ -52,12 +52,8 @@ jobs:
       targetType: 'inline'
       script: |
         echo "Téléversement du fichier sbom.json vers Dependency-Track..."
-
-        # Nom et version du projet dans Dependency-Track
-        PROJECT_NAME="ResearchDependencyTrack" # Nom de votre projet
-        PROJECT_VERSION="$(Build.BuildNumber)" # Utilise le numéro de build d'Azure DevOps
-
-        # Appel de l'API Dependency-Track avec curl
+        PROJECT_NAME="ResearchDependencyTrack"
+        PROJECT_VERSION="$(Build.BuildNumber)"
         curl -X "POST" \
              -H "X-Api-Key: $(DTACK_API_KEY)" \
              -H "Content-Type: multipart/form-data" \
