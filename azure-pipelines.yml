@@ -40,7 +40,7 @@ jobs:
     displayName: '3. Restaurer les dépendances NuGet'
     inputs:
       command: 'restore'
-      projects: 'ResearchDependencyTrack/ResearchDependencyTrack.sln' # CHEMIN À VÉRIFIER
+      projects: 'ResearchDependencyTrack.sln' # CHEMIN À VÉRIFIER
 
   # --- ÉTAPE 3 : INSTALLATION DE CYCLONEDX ---
   - task: DotNetCoreCLI@2
@@ -53,7 +53,7 @@ jobs:
   # --- ÉTAPE 4 : GÉNÉRATION DU SBOM ---
   # Le même chemin que pour l'étape 2 doit être utilisé ici.
   - script: |
-      cyclonedx -i ResearchDependencyTrack/ResearchDependencyTrack.sln -o $(Build.ArtifactStagingDirectory)/sbom.json # CHEMIN À VÉRIFIER
+      cyclonedx -i ResearchDependencyTrack.sln -o $(Build.ArtifactStagingDirectory)/sbom.json # CHEMIN À VÉRIFIER
     displayName: '5. Générer le SBOM'
 
   # --- ÉTAPE 5 : ENVOI À DEPENDENCY-TRACK ---
