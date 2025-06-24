@@ -11,30 +11,28 @@ jobs:
 - job: Build_and_Upload_SBOM
   displayName: 'Générer et envoyer le SBOM pour .NET'
   steps:
-  # L'étape de débogage n'est plus nécessaire, je l'ai enlevée pour plus de clarté.
   - task: UseDotNet@2
-    displayName: 'Installer le SDK .NET 9.x' # MODIFIÉ
+    displayName: 'Installer le SDK .NET 9.x'
     inputs:
       packageType: 'sdk'
-      version: '9.x' # MODIFIÉ
-      includePreviewVersions: true # MODIFIÉ
+      version: '9.x'
+      includePreviewVersions: true
 
   - task: DotNetCoreCLI@2
     displayName: 'Restaurer les dépendances NuGet'
     inputs:
       command: 'restore'
-      # Vous avez mis le .sln à la racine, donc ce chemin est maintenant correct.
       projects: 'ResearchDependencyTrack.sln'
 
   - task: DotNetCoreCLI@2
-    displayName: 'Installer l''outil CycloneDX pour .NET'
+    displayName: 'Installer l''outil CycloneDX.DotNet' # MODIFIÉ
     inputs:
       command: 'custom'
       custom: 'tool'
-      arguments: 'install --global CycloneDX.Tool'
+      arguments: 'install --global CycloneDX.DotNet' # MODIFIÉ
 
   - script: |
-      cyclonedx -i ResearchDependencyTrack.sln -o $(Build.ArtifactStagingDirectory)/sbom.json
+      cyclonedx-dotnet -i ResearchDependencyTrack.sln -o $(Build.ArtifactStagingDirectory)/sbom.json # MODIFIÉ
     displayName: 'Générer le SBOM'
 
   - task: Bash@3
